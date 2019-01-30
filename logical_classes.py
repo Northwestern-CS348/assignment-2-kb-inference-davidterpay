@@ -436,7 +436,6 @@ class Bindings(object):
         self.add_binding(variable_term.term, value_term.term)
         return True
 
-
 class ListOfBindings(object):
     """Container for multiple Bindings
 

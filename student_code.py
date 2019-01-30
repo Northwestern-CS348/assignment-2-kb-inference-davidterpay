@@ -88,7 +88,7 @@ class KnowledgeBase(object):
         Args:
             fact_rule (Fact or Rule): Fact or Rule we're asserting
         """
-        printv("Asserting {!r}", 0, verbose, [fact_rule])
+        # printv("Asserting {!r}", 0, verbose, [fact_rule])
         self.kb_add(fact_rule)
 
     def kb_ask(self, fact):
@@ -100,7 +100,7 @@ class KnowledgeBase(object):
         Returns:
             listof Bindings|False - list of Bindings if result found, False otherwise
         """
-        print("Asking {!r}".format(fact))
+        # print("Asking {!r}".format(fact))
         if factq(fact):
             f = Fact(fact.statement)
             bindings_lst = ListOfBindings()
@@ -146,3 +146,26 @@ class InferenceEngine(object):
             [fact.statement, rule.lhs, rule.rhs])
         ####################################################
         # Student code goes here
+        isMatch = match(fact.statement, rule.lhs[0]) # We only have to check the first element on the lhs
+        if isMatch: # we only want to enter if there is a binding to anything
+            if (len(rule.lhs) == 1): # if there is only one binding 
+                newFact = Fact(instantiate(rule.rhs, isMatch), [[fact, rule]])
+                fact.supports_facts.append(newFact)
+                rule.supports_facts.append(newFact)
+                kb.kb_add(newFact)
+            else:  # if there are multiple bindings or portions to a rule
+                firstStatement = rule.lhs[0]
+                newRuleLHS = []
+                for statement in rule.lhs:
+                    if firstStatement != statement:
+                        newStatment = instantiate(statement, isMatch)
+                        newRuleLHS.append(newStatment)
+                newRuleRHS = instantiate(rule.rhs, isMatch)
+                newRule = Rule([newRuleLHS, newRuleRHS], [[fact, rule]])
+                fact.supports_rules.append(newRule)
+                rule.supports_rules.append(newRule)
+                kb.kb_add(newRule)
+
+
+
+
