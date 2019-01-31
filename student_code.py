@@ -88,7 +88,7 @@ class KnowledgeBase(object):
         Args:
             fact_rule (Fact or Rule): Fact or Rule we're asserting
         """
-        # printv("Asserting {!r}", 0, verbose, [fact_rule])
+        printv("Asserting {!r}", 0, verbose, [fact_rule])
         self.kb_add(fact_rule)
 
     def kb_ask(self, fact):
@@ -100,7 +100,7 @@ class KnowledgeBase(object):
         Returns:
             listof Bindings|False - list of Bindings if result found, False otherwise
         """
-        # print("Asking {!r}".format(fact))
+        print("Asking {!r}".format(fact))
         if factq(fact):
             f = Fact(fact.statement)
             bindings_lst = ListOfBindings()
@@ -128,7 +128,47 @@ class KnowledgeBase(object):
         printv("Retracting {!r}", 0, verbose, [fact_or_rule])
         ####################################################
         # Student code goes here
+        if isinstance(fact_or_rule, Fact) and fact_or_rule in self.facts:
+            fact = self._get_fact(fact_or_rule)
+            if len(fact.supported_by) == 0:
+                self._retract(fact, True)
+                self.facts.remove(fact_or_rule)
+        elif isinstance(fact_or_rule, Rule) and fact_or_rule in self.rules:
+            rule = self._get_rule(fact_or_rule)
+            if not rule.asserted and len(rule.supported_by) == 0:
+                self._retract(rule, False)
+                self.rules.remove(fact_or_rule)
+
+
+    def _retract(self, fact_or_rule, f_r):
+        for fact, rule in fact_or_rule.supported_by:
+            if f_r:
+                fact.supports_facts.remove(fact_or_rule)
+                rule.supports_facts.remove(fact_or_rule)
+            else:
+                fact.supports_rules.remove(fact_or_rule)
+                rule.supports_rules.remove(fact_or_rule)
+        for rule in fact_or_rule.supports_rules:
+            if f_r:
+                rule.supported_by = [[x, y] for x, y in rule.supported_by if x != fact_or_rule]
+            else: 
+                rule.supported_by = [[x, y] for x, y in rule.supported_by if y != fact_or_rule]
+            self.kb_retract(rule)
+        for fact in fact_or_rule.supports_facts:
+            if f_r:
+                fact.supported_by = [[x, y] for x, y in fact.supported_by if x != fact_or_rule]
+            else:
+                fact.supported_by = [[x, y] for x, y in fact.supported_by if y != fact_or_rule]
+            self.kb_retract(fact)
+        fact_or_rule.asserted = False
         
+
+
+
+
+
+
+
 
 class InferenceEngine(object):
     def fc_infer(self, fact, rule, kb):
@@ -154,10 +194,9 @@ class InferenceEngine(object):
                 rule.supports_facts.append(newFact)
                 kb.kb_add(newFact)
             else:  # if there are multiple bindings or portions to a rule
-                firstStatement = rule.lhs[0]
                 newRuleLHS = []
                 for statement in rule.lhs:
-                    if firstStatement != statement:
+                    if rule.lhs[0] != statement:
                         newStatment = instantiate(statement, isMatch)
                         newRuleLHS.append(newStatment)
                 newRuleRHS = instantiate(rule.rhs, isMatch)
