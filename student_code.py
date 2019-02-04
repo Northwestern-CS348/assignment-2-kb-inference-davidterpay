@@ -116,6 +116,7 @@ class KnowledgeBase(object):
             print("Invalid ask:", fact.statement)
             return []
 
+
     def kb_retract(self, fact_or_rule):
         """Retract a fact from the KB
 
@@ -128,46 +129,44 @@ class KnowledgeBase(object):
         printv("Retracting {!r}", 0, verbose, [fact_or_rule])
         ####################################################
         # Student code goes here
-        if isinstance(fact_or_rule, Fact) and fact_or_rule in self.facts:
-            fact = self._get_fact(fact_or_rule)
-            if len(fact.supported_by) == 0:
-                self._retract(fact, True)
-                self.facts.remove(fact_or_rule)
-        elif isinstance(fact_or_rule, Rule) and fact_or_rule in self.rules:
-            rule = self._get_rule(fact_or_rule)
-            if not rule.asserted and len(rule.supported_by) == 0:
-                self._retract(rule, False)
-                self.rules.remove(fact_or_rule)
-
-
-    def _retract(self, fact_or_rule, f_r):
-        for fact, rule in fact_or_rule.supported_by:
-            if f_r:
-                fact.supports_facts.remove(fact_or_rule)
-                rule.supports_facts.remove(fact_or_rule)
-            else:
-                fact.supports_rules.remove(fact_or_rule)
-                rule.supports_rules.remove(fact_or_rule)
+        if isinstance(fact_or_rule, Fact):
+            #Check if we have a fact, if so we make sure it is not supported. Otherwisee we return because we
+            #Cant remove facts or rules that are supported
+            fact_or_rule = self._get_fact(fact_or_rule)
+            if not fact_or_rule:
+                return
+            if len(fact_or_rule.supported_by) != 0:
+                if fact_or_rule.asserted:
+                    fact_or_rule.asserted = False
+                return
+            self.facts.remove(fact_or_rule)
+            
+        elif isinstance(fact_or_rule, Rule):
+            fact_or_rule = self._get_rule(fact_or_rule)
+            if not fact_or_rule:
+                return
+            #On the other side we check, we cant remove a fact if it is asserted or if it is supported
+            if fact_or_rule.asserted or len(fact_or_rule.supported_by) != 0:
+                return
+            self.rules.remove(fact_or_rule)
+        else:
+            return
+        #Otherwise we reach a point where all we want to do is remove from the knowledge base
+        #Once we remove from the KB, we want to check all of the supports and deal with those recursively
+        #First we will check if the fact or rule has rules it supports
+        #If so we want to iterate through those rules, take the pair that contains this fact, remove it
+        #and then call kb_retract once again to recursively facts/rules that we no longer need
         for rule in fact_or_rule.supports_rules:
-            if f_r:
-                rule.supported_by = [[x, y] for x, y in rule.supported_by if x != fact_or_rule]
-            else: 
-                rule.supported_by = [[x, y] for x, y in rule.supported_by if y != fact_or_rule]
+            pair = [pair for pair in rule.supported_by if fact_or_rule in pair]
+            self._get_rule(rule).supported_by.remove(pair[0])
             self.kb_retract(rule)
+        #Second we will check if the fact or rule has facts it supports
+        #If so we want to iterate through those facts, take the pair that contains this fact, remove it
+        #and then call kb_retract once again to recursively facts/rules that we no longer need
         for fact in fact_or_rule.supports_facts:
-            if f_r:
-                fact.supported_by = [[x, y] for x, y in fact.supported_by if x != fact_or_rule]
-            else:
-                fact.supported_by = [[x, y] for x, y in fact.supported_by if y != fact_or_rule]
+            pair = [pair for pair in fact.supported_by if fact_or_rule in pair]
+            self._get_fact(fact).supported_by.remove(pair[0])
             self.kb_retract(fact)
-        fact_or_rule.asserted = False
-        
-
-
-
-
-
-
 
 
 class InferenceEngine(object):
@@ -186,24 +185,25 @@ class InferenceEngine(object):
             [fact.statement, rule.lhs, rule.rhs])
         ####################################################
         # Student code goes here
-        isMatch = match(fact.statement, rule.lhs[0]) # We only have to check the first element on the lhs
-        if isMatch: # we only want to enter if there is a binding to anything
-            if (len(rule.lhs) == 1): # if there is only one binding 
-                newFact = Fact(instantiate(rule.rhs, isMatch), [[fact, rule]])
+        bindingsExist = match(fact.statement, rule.lhs[0]) # We only have to check the first element on the lhs
+        if bindingsExist:
+            if len(rule.lhs) == 1:
+                newStatement = instantiate(rule.rhs, bindingsExist)
+                newFact = Fact(newStatement, [(fact, rule)])
                 fact.supports_facts.append(newFact)
                 rule.supports_facts.append(newFact)
                 kb.kb_add(newFact)
-            else:  # if there are multiple bindings or portions to a rule
-                newRuleLHS = []
-                for statement in rule.lhs:
-                    if rule.lhs[0] != statement:
-                        newStatment = instantiate(statement, isMatch)
-                        newRuleLHS.append(newStatment)
-                newRuleRHS = instantiate(rule.rhs, isMatch)
-                newRule = Rule([newRuleLHS, newRuleRHS], [[fact, rule]])
+            else:
+                newLeftHandside = []
+                for statement in rule.lhs[1:]:
+                    newStatement = instantiate(statement, bindingsExist)
+                    newLeftHandside.append(newStatement)
+                newRightHandSide = instantiate(rule.rhs, bindingsExist)
+                newRule = Rule([newLeftHandside, newRightHandSide], [(fact, rule)])
                 fact.supports_rules.append(newRule)
                 rule.supports_rules.append(newRule)
                 kb.kb_add(newRule)
+
 
 
 
