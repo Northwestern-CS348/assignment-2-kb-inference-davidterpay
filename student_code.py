@@ -130,8 +130,6 @@ class KnowledgeBase(object):
         ####################################################
         # Student code goes here
         if isinstance(fact_or_rule, Fact):
-            #Check if we have a fact, if so we make sure it is not supported. Otherwisee we return because we
-            #Cant remove facts or rules that are supported
             fact_or_rule = self._get_fact(fact_or_rule)
             if not fact_or_rule:
                 return
@@ -140,29 +138,19 @@ class KnowledgeBase(object):
                     fact_or_rule.asserted = False
                 return
             self.facts.remove(fact_or_rule)
-            
         elif isinstance(fact_or_rule, Rule):
             fact_or_rule = self._get_rule(fact_or_rule)
             if not fact_or_rule:
                 return
-            #On the other side we check, we cant remove a fact if it is asserted or if it is supported
             if fact_or_rule.asserted or len(fact_or_rule.supported_by) != 0:
                 return
             self.rules.remove(fact_or_rule)
         else:
             return
-        #Otherwise we reach a point where all we want to do is remove from the knowledge base
-        #Once we remove from the KB, we want to check all of the supports and deal with those recursively
-        #First we will check if the fact or rule has rules it supports
-        #If so we want to iterate through those rules, take the pair that contains this fact, remove it
-        #and then call kb_retract once again to recursively facts/rules that we no longer need
         for rule in fact_or_rule.supports_rules:
             pair = [pair for pair in rule.supported_by if fact_or_rule in pair]
             self._get_rule(rule).supported_by.remove(pair[0])
             self.kb_retract(rule)
-        #Second we will check if the fact or rule has facts it supports
-        #If so we want to iterate through those facts, take the pair that contains this fact, remove it
-        #and then call kb_retract once again to recursively facts/rules that we no longer need
         for fact in fact_or_rule.supports_facts:
             pair = [pair for pair in fact.supported_by if fact_or_rule in pair]
             self._get_fact(fact).supported_by.remove(pair[0])
